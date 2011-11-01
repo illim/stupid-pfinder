@@ -25,3 +25,4 @@ let stupidFind orig (dx, dy) ({field = field} as world) =
                 bestDist pn newcost (path @ [pn])
               end ) stepCosts)
   in bestDist orig 0. []
+;;

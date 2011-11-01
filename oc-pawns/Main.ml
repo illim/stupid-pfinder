@@ -16,8 +16,7 @@ let main =
     List.iter (fun (x, y) -> Printf.printf "(%i," x; Printf.printf " %i)" y) paths;
     Printf.printf ": %f\n" cost;
   and results = (stupidFind (3, 3) (8, 6) basicWorld)
-  in print_int (List.length results);
-    print_string " results";
+  in Printf.printf "%i results " (List.length results);
     print_result (List.hd (List.sort (fun (_, x) (_, y) -> compare x y) results))
 ;;
 

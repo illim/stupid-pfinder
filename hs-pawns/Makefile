@@ -5,7 +5,7 @@ dist: dist/setup-config *.hs
 	cabal build
 
 clean:
-	rm -rf dist
+	cabal $@
 
 install:
 	cabal install --prefix=$HOME --user
@@ -19,3 +19,5 @@ runp: dist
 
 ps: runp
 	hp2ps -e8in -c pawns.hp
+
+.PHONY: clean run runp ps
