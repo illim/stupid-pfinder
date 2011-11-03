@@ -1,10 +1,8 @@
+
 type point = int * int
-
-type entity = { position : point }
-
-type field = { size : int;  heights : (point, int) Hashtbl.t }
-
-type world = { field : field; entities : entity list}
+and entity = { position : point }
+and field = { size : int;  heights : (point, int) Hashtbl.t }
+and world = { field : field; entities : entity list}
 
 let isClean { field ; entities } (x, y) =
   (x > -1
