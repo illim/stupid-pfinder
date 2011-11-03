@@ -1,10 +1,14 @@
 all:
-	ocamlbuild Main.native
+	ocamlbuild Main.p.native
 
 clean:
 	ocamlbuild -$@
 
 run: all
-	./_build/Main.native
+	./Main.p.native
 
-.PHONY : all clean run
+runp: all
+	./Main.p.native
+	gprof Main.p.native | less
+
+.PHONY : all clean run runp
