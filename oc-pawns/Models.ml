@@ -1,6 +1,13 @@
+module Point = struct
+  type point = int * int
 
-type point = int * int
-and entity = { position : point }
+  let add (x, y) (i, j) = x + i, y + j
+  let equals (x, y) (i, j) = x == i && y == j
+end
+
+open Point
+
+type entity = { position : point }
 and field = { size : int;  heights : (point, int) Hashtbl.t }
 and world = { field : field; entities : entity list}
 
