@@ -12,7 +12,7 @@ module BaseStupidFinder = struct
   (* some bs :)) *)
   let printResult result =
     let print_pathresult (paths, cost) =
-      List.iter (fun (x, y) -> Printf.printf "(%i," x; Printf.printf " %i)" y) paths;
+      List.iter (fun (x, y) -> Printf.printf "(%i, %i)" x y) paths;
       Printf.printf ": %f\n" cost
     in Printf.printf "%i results " (List.length result);
       print_pathresult (List.hd (List.sort (fun (_, x) (_, y) -> compare x y) result))
