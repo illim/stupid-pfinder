@@ -1,5 +1,5 @@
 all:
-	ocamlbuild Main.p.native
+	ocamlbuild -use-ocamlfind Main.p.native
 
 clean:
 	ocamlbuild -$@

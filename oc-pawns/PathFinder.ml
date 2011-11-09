@@ -1,5 +1,6 @@
 open Models
 open Point
+open Batteries_uni
 
 module type FINDER = sig
   type result
@@ -10,13 +11,9 @@ end
 module BaseStupidFinder = struct
   type result = (point list * float) list
 
-  (* some bs :)) *)
   let printResult result =
-    let print_pathresult (paths, cost) =
-      List.iter (fun (x, y) -> Printf.printf "(%i, %i)" x y) paths;
-      Printf.printf ": %f\n" cost
-    in Printf.printf "%i results " (List.length result);
-      print_pathresult (List.hd (List.sort (fun (_, x) (_, y) -> compare x y) result))
+    let (bestpath, bestcost) = List.hd (List.sort ~cmp:(fun (_, x) (_, y) -> compare x y) result)
+    in Printf.printf "> %a results\n%a: %f\n" Int.print (List.length result) (List.print (Pair.print Int.print Int.print)) bestpath bestcost
 
   let stepCosts =
     let ortho = List.map (fun step -> step, 1.) [1, 0 ; 0, 1; 0, -1; -1, 0]
@@ -55,7 +52,7 @@ module FastStupidfinder : FINDER = struct
   include BaseStupidFinder
 
   let dumbDist (a, b) (c, d) = let pow2 x = x * x in pow2 (d - b) + pow2 (c - a)
-  let sortBy f xs = List.sort (fun x y -> compare (f x) (f y)) xs
+  let sortBy f xs = List.sort ~cmp:(fun x y -> compare (f x) (f y)) xs
   let compose f g = function x -> f(g(x))
 
   let stupidFind orig dest ({field} as world) =
