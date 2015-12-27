@@ -1,7 +1,5 @@
-#![feature(convert, core, collections)] 
-
-extern crate core;
-use core::cmp::Ordering;
+use std::cmp::Ordering;
+use std::rc::Rc;
 
 #[derive(PartialEq, Debug, Eq, Hash, Clone, Copy)]
 struct Point {
@@ -19,28 +17,16 @@ struct World {
 }
 
 #[derive(Debug)]
+enum List<A> {
+    Cons(A, Rc<List<A>>),
+    Nil
+}
+
+#[derive(Debug)]
 struct Computation {
   p : Point,
   cost : f64,
-  path : Vec<Point>
-}
-
-fn pt(x : i32, y : i32) -> Point {
-    Point {x : x, y :y}
-}
-
-fn add(p : Point, p2 : Point) -> Point {
-    Point { x : p.x + p2.x, y : p.y + p2.y }
-}
-
-fn get_step_costs() -> Vec<(Point, f64)> {
-    [pt(1, 0), pt(0, 1), pt(0, -1), pt(-1, 0)]
-        .iter()
-        .map(|&p| (p, 1.0))
-        .chain([pt(1, 1), pt(1, -1), pt(-1, 1), pt(-1, -1)]
-            .iter()
-            .map(|&p| (p, 1.414213)))
-        .collect()
+  path : Rc<List<Point>>
 }
 
 fn main() {
@@ -71,21 +57,18 @@ fn is_clean(p : &Point, world : &World) -> bool {
 fn stupid_find(orig : Point, dest : Point, world : World,
                step_costs : Vec<(Point, f64)>) -> Option<Computation> {
 
-    let init = Computation { p : orig, cost : 0.0, path : Vec::new() };
     let f = | x : Computation, m : &mut Marks | {
         step_costs
             .iter()
             .map( |&sc| {
                 let (step, step_cost) = sc;
                 let pn = add(x.p, step);
-                let mut newpath = Vec::new();
-                newpath.push(pn);
-                newpath.push_all(x.path.as_slice());
+                let newpath = List::Cons(pn, x.path.clone());
 
                 Computation {
                     p : pn,
                     cost : x.cost + step_cost,
-                    path : newpath
+                    path : Rc::new(newpath)
                 }
             }).fold(Vec::new(), |mut acc, c| {
                 if is_clean(&c.p, &world)
@@ -98,7 +81,7 @@ fn stupid_find(orig : Point, dest : Point, world : World,
     };
 
     let mut marks = [[99999.0 ; WORLD_SIZE]; WORLD_SIZE]; // FIXME passing in closure env instead of params
-
+    let init = Computation { p : orig, cost : 0.0, path : Rc::new(List::Nil) };
     let dists = rec_dists(init, dest, &mut marks, &f );
 
     dists.into_iter().fold(None, |acc, c| {
@@ -123,4 +106,23 @@ fn rec_dists<F>(c : Computation, dest : Point, marks : &mut Marks, f : & F) -> V
           rec_dists(next, dest, marks, f)
       }
   }).collect()
+}
+
+
+fn pt(x : i32, y : i32) -> Point {
+    Point {x : x, y :y}
+}
+
+fn add(p : Point, p2 : Point) -> Point {
+    Point { x : p.x + p2.x, y : p.y + p2.y }
+}
+
+fn get_step_costs() -> Vec<(Point, f64)> {
+    [pt(1, 0), pt(0, 1), pt(0, -1), pt(-1, 0)]
+        .iter()
+        .map(|&p| (p, 1.0))
+        .chain([pt(1, 1), pt(1, -1), pt(-1, 1), pt(-1, -1)]
+            .iter()
+            .map(|&p| (p, 1.414213)))
+        .collect()
 }
