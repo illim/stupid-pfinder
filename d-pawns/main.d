@@ -11,6 +11,11 @@ struct World {
     Point[] entities;
 }
 
+struct LinkedList(T) {
+    T value;
+    typeof(this)* next;
+}
+
 const int WORLD_SIZE = 10;
 
 void main() {
@@ -45,11 +50,7 @@ World initWorld() {
 
 
 alias StepCosts = double[Point];
-
-struct Path {
-    Point value;
-    Path* next;
-}
+alias Path = LinkedList!Point;
 
 string toString(Path* path) {
     if (path.next) {
