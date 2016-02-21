@@ -1,5 +1,8 @@
 use std::cmp::Ordering;
 use std::rc::Rc;
+use std::collections::HashMap;
+
+const WORLD_SIZE : usize = 10;
 
 #[derive(PartialEq, Debug, Eq, Hash, Clone, Copy)]
 struct Point {
@@ -7,13 +10,31 @@ struct Point {
   y: i32
 }
 
-const WORLD_SIZE : usize = 10;
-type Marks=[[f64;WORLD_SIZE];WORLD_SIZE];
+fn pt(x : i32, y : i32) -> Point {
+    Point {x : x, y :y}
+}
 
-struct Entity(Point);
+impl Point {
+    fn add(&self, p : Point) -> Point {
+        Point { x : self.x + p.x, y : self.y + p.y }
+    }
+}
 
 struct World {
-  entities : Vec<Entity>
+  entities : Vec<Point>
+}
+
+impl World {
+    
+    fn is_clean(&self, p : &Point) -> bool {
+        p.x > -1
+            && (p.x as usize) < WORLD_SIZE
+            && p.y >-1
+            && (p.y as usize) < WORLD_SIZE
+            && self.entities.iter().all(|&pt| {
+                pt != *p
+            })
+    }
 }
 
 #[derive(Debug)]
@@ -22,107 +43,114 @@ enum List<A> {
     Nil
 }
 
+use List::*;
+
+struct StepCost {
+    step : Point,
+    cost : f64        
+}
+
+struct Finder<'a> {
+    world : &'a World,
+    marks : HashMap<Point, f64>,
+    step_costs : Vec<StepCost>
+}
+
+type Path = List<Point>;
+
 #[derive(Debug)]
-struct Computation {
-  p : Point,
-  cost : f64,
-  path : Rc<List<Point>>
+struct SearchResult {
+    path : Rc<Path>,
+    cost : f64
+}
+
+impl<'a> Finder<'a> {
+
+    fn new(world : &World) -> Finder {
+        Finder {
+            world : &world,
+            marks : HashMap::new(),
+            step_costs : get_step_costs()
+        }
+    }
+
+    fn find(&mut self, orig : Point, dest : Point) -> Option<SearchResult> {
+        self.marks = HashMap::new();
+        self.best_dist(orig, dest, Rc::new(Cons(orig, Rc::new(Nil))), 0.0)
+    }
+
+    fn best_dist(&mut self, p : Point, dest : Point, path : Rc<Path>, acc_cost : f64) -> Option<SearchResult> {
+        if p == dest {
+            Some(SearchResult{ path: path.clone(), cost: acc_cost})
+        } else {
+            // create a block to release ownership of the closure to use self later
+            let next_steps = {
+                // Boilerplate to avoid borrowing self
+                let world      = &self.world;
+                let marks      = &mut self.marks;
+                let step_costs = &self.step_costs;
+               
+                step_costs
+                    .iter()
+                    .filter_map(|step_cost : &StepCost| {
+                        let next = p.add(step_cost.step);
+                        let oldcost = *marks.get(&next).unwrap_or(&0.0);
+                        let cost = acc_cost + step_cost.cost;
+
+                        if world.is_clean(&next)
+                            && (oldcost == 0.0 || oldcost > cost) {
+                                marks.insert(next, cost);
+                                Some(next)
+                            } else {
+                                None
+                            }
+                    })
+                    .collect::<Vec<Point>>() // HACK?? can't return iterator because references are no more valid outside of the block
+            };
+                
+            let search_results = next_steps
+                .iter()
+                .filter_map(|&next| {
+                    let newpath = Rc::new(Cons(next, path.clone()));
+                    let newcost = *self.marks.get(&next).unwrap();
+                    self.best_dist(next, dest, newpath, newcost)
+                });
+            
+            search_results.fold(None, |acc, search_result| {
+                match acc {
+                    Some(best) =>
+                        if best.cost.partial_cmp(&search_result.cost) == Some(Ordering::Less) {
+                            Some(best)
+                        } else {
+                            Some(search_result)
+                        },
+                    None => Some(search_result)
+                }
+            })
+        }
+    }
+}
+
+fn get_step_costs() -> Vec<StepCost> {
+    [pt(1, 0), pt(0, 1), pt(0, -1), pt(-1, 0)]
+        .iter()
+        .map(|&p| StepCost{ step : p, cost : 1.0})
+        .chain([pt(1, 1), pt(1, -1), pt(-1, 1), pt(-1, -1)]
+            .iter()
+            .map(|&p| StepCost{ step: p, cost: 1.414213} ))
+        .collect()
 }
 
 fn main() {
-    let entities = [3, 4, 5, 6, 7, 8]
-        .iter()
-        .map(|&i| Entity(pt(7, i)))
+    let entities = (3..)
+        .take(6)
+        .map(|i| pt(7, i))
         .collect::<Vec<_>>();
     let world = World { entities : entities };
     let orig = Point { x : 3, y : 3};
     let dest = Point { x : 8, y : 6};
- 
-    let sol = stupid_find(orig, dest, world, get_step_costs());
+    let mut finder = Finder::new(&world);
+    
+    let sol = finder.find(orig, dest);
     println!("sol = {:?}", sol);    
-}
-
-
-fn is_clean(p : &Point, world : &World) -> bool {
-    p.x > -1
-     && (p.x as usize) < WORLD_SIZE
-     && p.y >-1
-     && (p.y as usize) < WORLD_SIZE
-     && world.entities.iter().all(|e| {
-         let &Entity(pt) = e;
-         pt != *p
-     })
-}
-
-fn stupid_find(orig : Point, dest : Point, world : World,
-               step_costs : Vec<(Point, f64)>) -> Option<Computation> {
-
-    let f = | x : Computation, m : &mut Marks | {
-        step_costs
-            .iter()
-            .map( |&sc| {
-                let (step, step_cost) = sc;
-                let pn = add(x.p, step);
-                let newpath = List::Cons(pn, x.path.clone());
-
-                Computation {
-                    p : pn,
-                    cost : x.cost + step_cost,
-                    path : Rc::new(newpath)
-                }
-            }).fold(Vec::new(), |mut acc, c| {
-                if is_clean(&c.p, &world)
-                  && m[c.p.x as usize][c.p.y as usize] > c.cost {
-                    m[c.p.x as usize][c.p.y as usize] = c.cost;
-                    acc.push(c);
-                }
-                acc
-            })
-    };
-
-    let mut marks = [[99999.0 ; WORLD_SIZE]; WORLD_SIZE]; // FIXME passing in closure env instead of params
-    let init = Computation { p : orig, cost : 0.0, path : Rc::new(List::Nil) };
-    let dists = rec_dists(init, dest, &mut marks, &f );
-
-    dists.into_iter().fold(None, |acc, c| {
-        match acc {
-            Some(best) =>
-                if best.cost.partial_cmp(&c.cost) == Some(Ordering::Less) {
-                    Some(best)
-                } else {
-                    Some(c)
-                },
-            None => Some(c)
-        }
-    })
-}
-
-fn rec_dists<F>(c : Computation, dest : Point, marks : &mut Marks, f : & F) -> Vec<Computation>
-  where F : Fn(Computation, &mut Marks) -> Vec<Computation> {
-  f(c, marks).into_iter().flat_map( |next : Computation| {
-      if next.p == dest {
-          vec![next]
-      } else {
-          rec_dists(next, dest, marks, f)
-      }
-  }).collect()
-}
-
-
-fn pt(x : i32, y : i32) -> Point {
-    Point {x : x, y :y}
-}
-
-fn add(p : Point, p2 : Point) -> Point {
-    Point { x : p.x + p2.x, y : p.y + p2.y }
-}
-
-fn get_step_costs() -> Vec<(Point, f64)> {
-    [pt(1, 0), pt(0, 1), pt(0, -1), pt(-1, 0)]
-        .iter()
-        .map(|&p| (p, 1.0))
-        .chain([pt(1, 1), pt(1, -1), pt(-1, 1), pt(-1, -1)]
-            .iter()
-            .map(|&p| (p, 1.414213)))
-        .collect()
 }

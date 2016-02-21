@@ -2,3 +2,6 @@ go-pawns/go-pawns
 target
 dist
 *~
+nimcache
+main
+dpawns
